@@ -3,6 +3,8 @@ import pandas as pd
 
 import urllib2
 import argparse
+import os
+import datetime
 
 parser = argparse.ArgumentParser(description='Dealership')
 parser.add_argument('--pages', action="store", dest="pages", default=1)
@@ -48,17 +50,25 @@ def updateCarDetails(warm_soup):
             _dealer.append(details[7])
             _suburb.append(details[8])
 
+def Datetime():
+    return str(datetime.datetime.now()).replace(':','').replace('-','').replace('.','').replace(' ','')
+
 def main():
     
     for i in range(1,int(args.pages)+1):
         getCarsOnPage(i)
 
     table = pd.DataFrame(data={'Model' : _model, 'Price' : _price, 'Type' : _type, 'Year' : _year, 'Mileage' : _mileage, 'Gearbox' : _gearbox, 'Dealer' : _dealer, 'Suburb' : _suburb})
+    table.drop_duplicates(inplace=True)
 
     if args.sort:
         table.sort_values(by=[args.sort], inplace=True)
 
     print(table)
+    
+    file = '\\cars_'+str(len(cars))+'_'+Datetime()+'.json'
+
+    table.to_json(path_or_buf=os.getcwd()+file, orient='records',)
 
 
 if __name__ == "__main__":
