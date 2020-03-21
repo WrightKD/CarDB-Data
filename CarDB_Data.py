@@ -5,6 +5,7 @@ import urllib2
 import argparse
 import os
 import datetime
+import sys
 
 parser = argparse.ArgumentParser(description='Dealership')
 parser.add_argument('--pages', action="store", dest="pages", default=1)
@@ -53,10 +54,22 @@ def updateCarDetails(warm_soup):
 def Datetime():
     return str(datetime.datetime.now()).replace(':','').replace('-','').replace('.','').replace(' ','')
 
+def progressBar(value, endvalue, bar_length=20):
+
+    percent = float(value) / endvalue
+    arrow = '-' * int(round(percent * bar_length)-1) + '>'
+    spaces = ' ' * (bar_length - len(arrow))
+
+    sys.stdout.write("\rDownloading : [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
+    sys.stdout.flush()
+
 def main():
     
-    for i in range(1,int(args.pages)+1):
+    pages = int(args.pages)
+
+    for i in range(1,pages+1):
         getCarsOnPage(i)
+        progressBar(i,pages)
 
     table = pd.DataFrame(data={'Model' : _model, 'Price' : _price, 'Type' : _type, 'Year' : _year, 'Mileage' : _mileage, 'Gearbox' : _gearbox, 'Dealer' : _dealer, 'Suburb' : _suburb})
     table.drop_duplicates(inplace=True)
