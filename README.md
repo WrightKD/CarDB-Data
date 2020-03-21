@@ -16,6 +16,8 @@ python CarDB_Data.py
 ```
 ![Output](https://raw.githubusercontent.com/WrightKD/CarDB-Data/master/output.png)
 
+A json file wil be saved with all the vehicles in the folder where the python file lives.
+
 #### Arguments
 Sort - Sorts table by column name
 
