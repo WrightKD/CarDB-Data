@@ -71,6 +71,8 @@ def main():
         getCarsOnPage(i)
         progressBar(i,pages)
 
+    print('')
+
     table = pd.DataFrame(data={'Model' : _model, 'Price' : _price, 'Type' : _type, 'Year' : _year, 'Mileage' : _mileage, 'Gearbox' : _gearbox, 'Dealer' : _dealer, 'Suburb' : _suburb})
     table.drop_duplicates(inplace=True)
 
