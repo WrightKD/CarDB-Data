@@ -55,6 +55,9 @@ _service_history = []
 _vehicle_id = []
 _vehicle_images = []
 
+_vehicle_id_extras = []
+_vehicle_extras = []
+
 def getCarsOnPage(page):
     page = urllib.request.urlopen('https://www.autotrader.co.za/cars-for-sale?pagenumber='+str(page)+'&sortorder=Newest')
     soup = BeautifulSoup(page, features="html.parser")
@@ -76,6 +79,7 @@ def updateCarDetails(warm_soup):
             #_image.append(car.a['href'])
 
             VehicleInformation(car.a['href'], count)
+            VehicleExtras(count)
 
             _image.append(count)
             _price.append(details[0])
@@ -104,17 +108,37 @@ def VehicleInformation(url,index):
     page = urllib.request.urlopen('https://www.autotrader.co.za/' + url)
     soup = BeautifulSoup(page, features="html.parser")
 
-    imagesList = soup.find("ul", {"class": "e-thumbs-list"}).findAll("li")
+    try:
+        imagesList = soup.find("ul", {"class": "e-thumbs-list"}).findAll("li")
 
-    _vehicle_id.append(index)
+        _vehicle_id.append(index)
     
-    urllib.request.urlretrieve(imagesList[0].span.img['src'], "image.jpg")
+        urllib.request.urlretrieve(imagesList[0].span.img['src'], "image.jpg")
     
 
-    with open("image.jpg", "rb") as image_file:
-        encoded_image = base64.b64encode(image_file.read())
+        with open("image.jpg", "rb") as image_file:
+            encoded_image = base64.b64encode(image_file.read())
 
-    _vehicle_images.append(encoded_image)
+        _vehicle_images.append(encoded_image)
+    except:
+        pass
+
+    
+
+def VehicleExtras(index):
+
+    addExtras = random.randrange(0,2)
+
+    extra = []
+
+    while addExtras:
+        extra.append(random.randrange(1,30))
+        addExtras = random.randrange(0,2)
+    
+    dis_extras = list(set(extra))
+    
+    _vehicle_id_extras.extend(len(dis_extras) * [index])
+    _vehicle_extras.extend(dis_extras)
 
 
 def isAuto(transmission):
@@ -155,6 +179,8 @@ def main():
 
     tableVehicle_images = pd.DataFrame(data={'Vehicle_Id' : _vehicle_id, 'Image' : _vehicle_images})
 
+    tableVehicle_Extras = pd.DataFrame(data={'Extra_Id' : _vehicle_extras, 'Vehicle_Id' : _vehicle_id_extras})
+
     tableVehicles = pd.DataFrame(data={'Model' : _model, 'Price' : _price, 'Type' : _type, 'Year' : _year, 'Mileage' : _mileage, 'Dealer' : _dealer, 'Suburb' : _suburb,
                                'Colour' : _colour, 'Engine_Capacity' : _engine_capacity, 'Wheel_Size' : _wheel_size, 'Fuel_Type' : _fuel_types, 'Top_Speed' : _top_speed,
                                 'Previous_Owners' : _previous_owners, 'Service_History' : _service_history, 'Horsepower' : _horsepower, 'Vehicle_Vin' : _vin , 'Automatic_Transmission' : _automatic_transmission,
@@ -168,10 +194,12 @@ def main():
     print(tableVehicles.head())
     print(tableManufacturer.head())
     print(tableVehicle_images.head())
+    print(tableVehicle_Extras.head())
 
     tableVehicles.to_json(path_or_buf=os.getcwd()+'\\Vehicles.json', orient='records')
     tableManufacturer.to_json(path_or_buf=os.getcwd()+'\\Manufacturers.json', orient='records')
     tableVehicle_images.to_json(path_or_buf=os.getcwd()+'\\VehicleImages.json', orient='records')
+    tableVehicle_Extras.to_json(path_or_buf=os.getcwd()+'\\VehicleExtras.json', orient='records')
    
     sqlCreate = os.getcwd()+'\\UploadVehiclesProc.sql'
 
@@ -179,19 +207,22 @@ def main():
     output = process.stdout
     print(output)
 
+    print('Run the below commands in order: ')
+
     sqlExec = "EXEC [Dealership].[dbo].[UploadManufacturers] " + "'{}'".format(os.getcwd()+'\Manufacturers.json')
 
-    print('Run the below command: ')
+    print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
+
+    sqlExec = "EXEC [Dealership].[dbo].[UploadVehicle_Extras] " + "'{}'".format(os.getcwd()+'\VehicleExtras.json')
+
     print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
 
     sqlExec = "EXEC [Dealership].[dbo].[UploadVehicles] " + "'{}'".format(os.getcwd()+'\Vehicles.json')
 
-    print('Run the below command: ')
     print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
 
     sqlExec = "EXEC [Dealership].[dbo].[UploadVehicle_Images] " + "'{}'".format(os.getcwd()+'\VehicleImages.json')
 
-    print('Run the below command: ')
     print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
     
 
