@@ -9,6 +9,15 @@ import datetime
 import sys
 import urllib
 import urllib.request
+import random
+
+from VinGenerator import vin
+
+colours = ['Aluminum','Beige','Black','Blue','Brown','Bronze','Claret','Copper','Cream','Gold',
+            'Green', 'Maroon', 'Metallic', 'Navy', 'Orange', 'Pink', 'Purple', 'Red', 'Rose',
+            'Rust', 'Silver', 'Tan', 'Turquoise', 'White', 'Yellow']
+
+fuel_types = ['Petrol','Diesel']
 
 parser = argparse.ArgumentParser(description='Dealership')
 parser.add_argument('--pages', action="store", dest="pages", default=1)
@@ -33,7 +42,17 @@ _mileage = []
 _gearbox = []
 _dealer  = []
 _suburb  = []
-
+_vin     = []
+_manufacturer = []
+_colour = []
+_previous_owners = []
+_automatic_transmission = []
+_top_speed = []
+_engine_capacity = []
+_wheel_size = []
+_fuel_types = []
+_horsepower = []
+_service_history = []
 
 def getCarsOnPage(page):
     page = urllib.request.urlopen('https://www.autotrader.co.za/cars-for-sale?pagenumber='+str(page)+'&sortorder=Newest')
@@ -51,17 +70,36 @@ def updateCarDetails(warm_soup):
         details = [x for x in car.stripped_strings]
 
         if len(details) >= 10:
-            _image.append(car.a['href'])
+            #_image.append(car.a['href'])
+            _image.append(random.randrange(1, 255))
             _price.append(details[0])
-            _model.append(details[1])
+            _model.append(details[1]) 
+            _manufacturer.append(details[1].split()[0])
+            #_manufacturer.append(random.randrange(1, 25))
             _type.append(details[2])
             _year.append(details[3])
-            _mileage.append(details[4])
-            _gearbox.append(details[5])
+            _mileage.append(cleanMileage(details[4]))
             _dealer.append(details[7])
             _suburb.append(details[8])
+            _previous_owners.append(random.randrange(1, 4))
+            _automatic_transmission.append(isAuto(details[5]))
+            _colour.append(random.choice(colours))
+            _top_speed.append(random.randrange(100, 201))
+            _engine_capacity.append(round(random.uniform(1.0, 18.0),1))
+            _wheel_size.append(random.randrange(18, 36))
+            _fuel_types.append(random.choice(fuel_types))
+            _horsepower.append(random.randrange(1000, 2000))
+            _service_history.append('Full Service History')
+            _vin.append(vin.getRandomVin())
 
-    
+def isAuto(transmission):
+    if transmission == 'Manual':
+        return 0
+    else:
+        return 1
+
+def cleanMileage(string): 
+    return string.replace(" ", "").replace("km", "").replace('\u00a0', "")
 
 def Datetime():
     return str(datetime.datetime.now()).replace(':','').replace('-','').replace('.','').replace(' ','')
@@ -83,21 +121,32 @@ def main():
         getCarsOnPage(i)
         progressBar(i,pages)
 
-    print('')
+    Manufacturer = list(set(_manufacturer))
 
-    table = pd.DataFrame(data={'Model' : _model, 'Price' : _price, 'Type' : _type, 'Year' : _year, 'Mileage' : _mileage, 'Gearbox' : _gearbox, 'Dealer' : _dealer, 'Suburb' : _suburb})
-    table.drop_duplicates(inplace=True)
+    tableManufacturer = pd.DataFrame(data={'Name' : Manufacturer, 'Email' : [x+'@company.co.za' for x in Manufacturer], 'Phone_Number' : ['+27121234568']*len(Manufacturer) })
+
+    for i in range(0,len(_manufacturer)):
+        index = Manufacturer.index(_manufacturer[i]) + 1
+        _manufacturer[i] = index
+
+
+    tableVehicles = pd.DataFrame(data={'Model' : _model, 'Price' : _price, 'Type' : _type, 'Year' : _year, 'Mileage' : _mileage, 'Dealer' : _dealer, 'Suburb' : _suburb,
+                               'Colour' : _colour, 'Engine_Capacity' : _engine_capacity, 'Wheel_Size' : _wheel_size, 'Fuel_Type' : _fuel_types, 'Top_Speed' : _top_speed,
+                                'Previous_Owners' : _previous_owners, 'Service_History' : _service_history, 'Horsepower' : _horsepower, 'Vehicle_Vin' : _vin , 'Automatic_Transmission' : _automatic_transmission,
+                                'Manufacturer_Id' : _manufacturer, 'Image_Id' : _image})
+
+    tableVehicles.drop_duplicates(inplace=True)
 
     ##table.to_sql("Cars", con=engine)
 
     if args.sort:
-        table.sort_values(by=[args.sort], inplace=True)
+        tableVehicles.sort_values(by=[args.sort], inplace=True)
 
-    print(table)
-    
-    file = '\cars_'+str(len(cars))+'_'+Datetime()+'.json'
+    print(tableVehicles.head())
+    print(tableManufacturer.head())
 
-    table.to_json(path_or_buf=os.getcwd()+file, orient='records',)
+    tableVehicles.to_json(path_or_buf=os.getcwd()+'\\Vehicles.json', orient='records')
+    tableManufacturer.to_json(path_or_buf=os.getcwd()+'\\Manufacturers.json', orient='records')
    
     sqlCreate = os.getcwd()+'\\UploadVehiclesProc.sql'
 
@@ -105,8 +154,13 @@ def main():
     output = process.stdout
     print(output)
 
-    file_location = os.getcwd()+file
-    sqlExec = "EXEC [Dealership].[dbo].[UploadVehicles] " + "'{}'".format(file_location)
+
+    sqlExec = "EXEC [Dealership].[dbo].[UploadVehicles] " + "'{}'".format(os.getcwd()+'\Vehicles.json')
+
+    print('Run the below command: ')
+    print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
+
+    sqlExec = "EXEC [Dealership].[dbo].[UploadManufacturers] " + "'{}'".format(os.getcwd()+'\Manufacturers.json')
 
     print('Run the below command: ')
     print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
