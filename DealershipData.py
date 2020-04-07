@@ -13,6 +13,8 @@ import random
 
 from VinGenerator import vin
 
+import base64
+
 colours = ['Aluminum','Beige','Black','Blue','Brown','Bronze','Claret','Copper','Cream','Gold',
             'Green', 'Maroon', 'Metallic', 'Navy', 'Orange', 'Pink', 'Purple', 'Red', 'Rose',
             'Rust', 'Silver', 'Tan', 'Turquoise', 'White', 'Yellow']
@@ -25,11 +27,6 @@ parser.add_argument('--sort', action="store", dest="sort", default=None)
 parser.add_argument('--server', action="store", dest="server", default="KENNETHWR\SQLEXPRESS")
 args = parser.parse_args()
 
-##quoted = urllib.parse.quote_plus("DRIVER={SQL Server Native Client 11.0};SERVER=KENNETHWR\SQLEXPRESS;Initial Catalog=Dealership;Trusted_Connection=yes;Integrated Security=True")
-
-##engine = create_engine('mssql+pyodbc://server/Dealership')
-
-##engine = create_engine('mssql+pyodbc:///?odbc_connect={}'.format(quoted))
 
 cars = []
 
@@ -54,6 +51,10 @@ _fuel_types = []
 _horsepower = []
 _service_history = []
 
+
+_vehicle_id = []
+_vehicle_images = []
+
 def getCarsOnPage(page):
     page = urllib.request.urlopen('https://www.autotrader.co.za/cars-for-sale?pagenumber='+str(page)+'&sortorder=Newest')
     soup = BeautifulSoup(page, features="html.parser")
@@ -63,15 +64,20 @@ def getCarsOnPage(page):
 
 def updateCarDetails(warm_soup):
 
+    count = 0
+
     for car in warm_soup.find_all('div', attrs={'class' : 'b-result-tile'}):
         cars.append(car)
 
     for car in cars:
         details = [x for x in car.stripped_strings]
-
+        count += 1
         if len(details) >= 10:
             #_image.append(car.a['href'])
-            _image.append(random.randrange(1, 255))
+
+            VehicleInformation(car.a['href'], count)
+
+            _image.append(count)
             _price.append(details[0])
             _model.append(details[1]) 
             _manufacturer.append(details[1].split()[0])
@@ -91,6 +97,25 @@ def updateCarDetails(warm_soup):
             _horsepower.append(random.randrange(1000, 2000))
             _service_history.append('Full Service History')
             _vin.append(vin.getRandomVin())
+
+
+def VehicleInformation(url,index):
+
+    page = urllib.request.urlopen('https://www.autotrader.co.za/' + url)
+    soup = BeautifulSoup(page, features="html.parser")
+
+    imagesList = soup.find("ul", {"class": "e-thumbs-list"}).findAll("li")
+
+    _vehicle_id.append(index)
+    
+    urllib.request.urlretrieve(imagesList[0].span.img['src'], "image.jpg")
+    
+
+    with open("image.jpg", "rb") as image_file:
+        encoded_image = base64.b64encode(image_file.read())
+
+    _vehicle_images.append(encoded_image)
+
 
 def isAuto(transmission):
     if transmission == 'Manual':
@@ -122,13 +147,13 @@ def main():
         progressBar(i,pages)
 
     Manufacturer = list(set(_manufacturer))
-
     tableManufacturer = pd.DataFrame(data={'Name' : Manufacturer, 'Email' : [x+'@company.co.za' for x in Manufacturer], 'Phone_Number' : ['+27121234568']*len(Manufacturer) })
 
     for i in range(0,len(_manufacturer)):
         index = Manufacturer.index(_manufacturer[i]) + 1
         _manufacturer[i] = index
 
+    tableVehicle_images = pd.DataFrame(data={'Vehicle_Id' : _vehicle_id, 'Image' : _vehicle_images})
 
     tableVehicles = pd.DataFrame(data={'Model' : _model, 'Price' : _price, 'Type' : _type, 'Year' : _year, 'Mileage' : _mileage, 'Dealer' : _dealer, 'Suburb' : _suburb,
                                'Colour' : _colour, 'Engine_Capacity' : _engine_capacity, 'Wheel_Size' : _wheel_size, 'Fuel_Type' : _fuel_types, 'Top_Speed' : _top_speed,
@@ -137,16 +162,16 @@ def main():
 
     tableVehicles.drop_duplicates(inplace=True)
 
-    ##table.to_sql("Cars", con=engine)
-
     if args.sort:
         tableVehicles.sort_values(by=[args.sort], inplace=True)
 
     print(tableVehicles.head())
     print(tableManufacturer.head())
+    print(tableVehicle_images.head())
 
     tableVehicles.to_json(path_or_buf=os.getcwd()+'\\Vehicles.json', orient='records')
     tableManufacturer.to_json(path_or_buf=os.getcwd()+'\\Manufacturers.json', orient='records')
+    tableVehicle_images.to_json(path_or_buf=os.getcwd()+'\\VehicleImages.json', orient='records')
    
     sqlCreate = os.getcwd()+'\\UploadVehiclesProc.sql'
 
@@ -154,19 +179,21 @@ def main():
     output = process.stdout
     print(output)
 
+    sqlExec = "EXEC [Dealership].[dbo].[UploadManufacturers] " + "'{}'".format(os.getcwd()+'\Manufacturers.json')
+
+    print('Run the below command: ')
+    print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
 
     sqlExec = "EXEC [Dealership].[dbo].[UploadVehicles] " + "'{}'".format(os.getcwd()+'\Vehicles.json')
 
     print('Run the below command: ')
     print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
 
-    sqlExec = "EXEC [Dealership].[dbo].[UploadManufacturers] " + "'{}'".format(os.getcwd()+'\Manufacturers.json')
+    sqlExec = "EXEC [Dealership].[dbo].[UploadVehicle_Images] " + "'{}'".format(os.getcwd()+'\VehicleImages.json')
 
     print('Run the below command: ')
     print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
     
-
-
 
 if __name__ == "__main__":
     main()

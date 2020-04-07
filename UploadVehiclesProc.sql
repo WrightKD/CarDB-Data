@@ -96,3 +96,37 @@ begin
 
 end;
 go
+
+create or alter procedure UploadVehicle_Images(
+
+	@file as varchar(200)
+)
+as
+begin
+	
+	drop table [Dealership].[dbo].[Vehicle_Images];
+
+	CREATE TABLE  [Dealership].[dbo].[Vehicle_Images](
+	[Image_Id] [int] IDENTITY(1,1) NOT NULL,
+	[Vehicle_Id] [int] NOT NULL,
+	[Image] [varbinary](max) NOT NULL
+	);
+	
+	Declare @JSON varchar(max);
+	Declare @SQL nvarchar(max);
+
+	set @SQL = 'SELECT @JSON=BulkColumn FROM OPENROWSET (BULK ''' + @file + ''',  SINGLE_CLOB) as import';
+
+	exec sys.sp_executesql @SQL, N'@JSON varchar(max) OUTPUT', @JSON OUTPUT;
+
+	INSERT INTO [Dealership].[dbo].[Vehicle_Images]
+	SELECT *
+	FROM OPENJSON (@JSON)
+	WITH 
+	(
+	[Vehicle_Id] [int],
+	[Image] [varbinary](max)
+	);
+
+end;
+go
