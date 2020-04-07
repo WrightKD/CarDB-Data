@@ -1,16 +1,26 @@
 from bs4 import BeautifulSoup
 import pandas as pd
 
-import urllib2
+import subprocess
+
 import argparse
 import os
 import datetime
 import sys
+import urllib
+import urllib.request
 
 parser = argparse.ArgumentParser(description='Dealership')
 parser.add_argument('--pages', action="store", dest="pages", default=1)
 parser.add_argument('--sort', action="store", dest="sort", default=None)
+parser.add_argument('--server', action="store", dest="server", default="KENNETHWR\SQLEXPRESS")
 args = parser.parse_args()
+
+##quoted = urllib.parse.quote_plus("DRIVER={SQL Server Native Client 11.0};SERVER=KENNETHWR\SQLEXPRESS;Initial Catalog=Dealership;Trusted_Connection=yes;Integrated Security=True")
+
+##engine = create_engine('mssql+pyodbc://server/Dealership')
+
+##engine = create_engine('mssql+pyodbc:///?odbc_connect={}'.format(quoted))
 
 cars = []
 
@@ -26,7 +36,7 @@ _suburb  = []
 
 
 def getCarsOnPage(page):
-    page = urllib2.urlopen('https://www.autotrader.co.za/cars-for-sale?pagenumber='+str(page)+'&sortorder=Newest')
+    page = urllib.request.urlopen('https://www.autotrader.co.za/cars-for-sale?pagenumber='+str(page)+'&sortorder=Newest')
     soup = BeautifulSoup(page, features="html.parser")
 
     updateCarDetails(soup)
@@ -50,6 +60,8 @@ def updateCarDetails(warm_soup):
             _gearbox.append(details[5])
             _dealer.append(details[7])
             _suburb.append(details[8])
+
+    
 
 def Datetime():
     return str(datetime.datetime.now()).replace(':','').replace('-','').replace('.','').replace(' ','')
@@ -76,14 +88,30 @@ def main():
     table = pd.DataFrame(data={'Model' : _model, 'Price' : _price, 'Type' : _type, 'Year' : _year, 'Mileage' : _mileage, 'Gearbox' : _gearbox, 'Dealer' : _dealer, 'Suburb' : _suburb})
     table.drop_duplicates(inplace=True)
 
+    ##table.to_sql("Cars", con=engine)
+
     if args.sort:
         table.sort_values(by=[args.sort], inplace=True)
 
     print(table)
     
-    file = '\\cars_'+str(len(cars))+'_'+Datetime()+'.json'
+    file = '\cars_'+str(len(cars))+'_'+Datetime()+'.json'
 
     table.to_json(path_or_buf=os.getcwd()+file, orient='records',)
+   
+    sqlCreate = os.getcwd()+'\\UploadVehiclesProc.sql'
+
+    process = subprocess.run(['sqlcmd','-S',args.server,'-i',sqlCreate], check=True, stdout=subprocess.PIPE, universal_newlines=True)
+    output = process.stdout
+    print(output)
+
+    file_location = os.getcwd()+file
+    sqlExec = "EXEC [Dealership].[dbo].[UploadVehicles] " + "'{}'".format(file_location)
+
+    print('Run the below command: ')
+    print('sqlcmd -S ' +'"{}"'.format(args.server)+ ' -E ' + '-Q '+ '"{}"'.format(sqlExec))
+    
+
 
 
 if __name__ == "__main__":
