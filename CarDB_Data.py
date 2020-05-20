@@ -26,7 +26,7 @@ _suburb  = []
 
 
 def getCarsOnPage(page):
-    page = urllib2.urlopen('https://www.autotrader.co.za/cars-for-sale?pagenumber='+str(page)+'&sortorder=Newest')
+    page = urllib2.urlopen('/cars-for-sale?pagenumber='+str(page)+'&sortorder=Newest')
     soup = BeautifulSoup(page, features="html.parser")
 
     updateCarDetails(soup)
